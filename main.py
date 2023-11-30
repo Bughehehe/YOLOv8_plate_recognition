@@ -12,7 +12,7 @@ from keras.preprocessing.image import ImageDataGenerator
 from keras.layers import Dense, Flatten, MaxPooling2D, Dropout, Conv2D
 
 DATASET_PATH = "best.pt"
-VID_PATH = "sample.mp4"
+VID_PATH = "sample_better.mp4"
 YOLO_MODEL = 'yolov8n.pt'
 
 def find_contours(dimensions, img) :
