@@ -17,7 +17,8 @@ YOLO_MODEL = 'yolov8n.pt'
 def find_contours(dimensions, img) :
 
     # Find all contours in the image
-    cntrs, _ = cv2.findContours(img.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    cntrs, hierarchy  = cv2.findContours(img.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    cntrs = sorted(cntrs, key=cv2.contourArea, reverse=True)[:15]
 
     # Retrieve potential dimensions
     lower_width = dimensions[0]
@@ -33,7 +34,10 @@ def find_contours(dimensions, img) :
     x_cntr_list = []
     target_contours = []
     img_res = []
+
+    
     for cntr in cntrs :
+        
         # detects contour in binary image and returns the coordinates of rectangle enclosing it
         intX, intY, intWidth, intHeight = cv2.boundingRect(cntr)
         
@@ -95,10 +99,14 @@ def segment_characters(image) :
     img_binary_lp[:,LP_HEIGHT-3:LP_HEIGHT] = 255
 
     # Estimations of character contours sizes of cropped license plates
+    # dimensions = [LP_WIDTH/30,
+    #                    LP_WIDTH/1.5,
+    #                    LP_HEIGHT/10.1,
+    #                    LP_HEIGHT/1.5]
     dimensions = [LP_WIDTH/30,
                        LP_WIDTH/1.5,
-                       LP_HEIGHT/10,
-                       LP_HEIGHT/1.7]
+                       LP_HEIGHT/11.35,
+                       LP_HEIGHT/1.5]
     plt.imshow(img_binary_lp, cmap='gray')
     cv2.imwrite('contour.jpg',img_binary_lp)
 
@@ -175,19 +183,25 @@ for photo in photos:
 
     licence_plastes = licence_plate_detector(img)[0]
 
-    if len(licence_plastes) == 2:
-       print("DWA OBRAZY")
-       print(labels)
-       
+    temp_boxes = licence_plastes.boxes.data.tolist()
+    # for licence_plate in temp_boxes:
+    #    print(len(licence_plate))
+    #    print(type(licence_plate))
+    #    print((licence_plate))
+    #    for item in licence_plate:
+    #     # print(len(item))
+    #     print(type(item))
+    #     print((item))
 
     
-    temp_boxes = licence_plastes.boxes.data.tolist()
+          
     for licence_plate in temp_boxes:
+        img_holder = img
         x1, y1, x2, y2, score, class_id = licence_plate
-        print(licence_plate)
-        license_plate_crop = img[int(y1):int(y2), int(x1):int(x2), :]
+        license_plate_crop = 0
+        license_plate_crop = img_holder[int(y1):int(y2), int(x1):int(x2), :]
 
-        cv2.imshow("original_crop", license_plate_crop)
+        
 
         ########################### PHOTO CNN ########################################
 
@@ -197,17 +211,32 @@ for photo in photos:
 
         plt.figure(figsize=(10,6))
         for i,ch in enumerate(char):
-            img = cv2.resize(ch, (28,28), interpolation=cv2.INTER_AREA)
+            img_holder = cv2.resize(ch, (28,28), interpolation=cv2.INTER_AREA)
             plt.subplot(3,4,i+1)
-            plt.imshow(img,cmap='gray')
+            plt.imshow(img_holder,cmap='gray')
             temp = show_results(char, dic)[i]
             plt.title(f'predicted: {temp}')
             plt.axis('off')
             predicted_label.append(temp)
-        plt.show()
+        # plt.show()
+        labels.append([photo, ''.join(predicted_label)])
+        print(predicted_label)
+        # cv2.imshow("original_crop", license_plate_crop)
 
-        labels.append(''.join(predicted_label))
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
+        # plt.close()
 
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-        plt.close()
+os.chdir(main_path)
+
+# with open("read.json", 'w') as plik_json:
+#     pierwsze_miejsca = [element[0] for element in labels]
+#     drugie_miejsca = [element[1] for element in labels]
+#     dane_do_zapisu = {"nazwa_pliku": pierwsze_miejsca, "lista_danych": drugie_miejsca}
+    
+#     # Ustawiamy parametr 'indent' na 2, aby uzyskać wcięcia i zapisywać wertykalnie
+#     json.dump(dane_do_zapisu, plik_json, indent=2)
+
+with open("readed_plates.txt", 'w') as plik_txt:
+    for item in labels:
+        plik_txt.writelines("Nazwa pliku: " + item[0] + " odczytana wartosc z tablicy: " + item[1] + "\n")
