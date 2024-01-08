@@ -218,25 +218,11 @@ for photo in photos:
             plt.title(f'predicted: {temp}')
             plt.axis('off')
             predicted_label.append(temp)
-        # plt.show()
+        plt.show()
         labels.append([photo, ''.join(predicted_label)])
         print(predicted_label)
-        # cv2.imshow("original_crop", license_plate_crop)
+        cv2.imshow("original_crop", license_plate_crop)
 
-        # cv2.waitKey(0)
-        # cv2.destroyAllWindows()
-        # plt.close()
-
-os.chdir(main_path)
-
-# with open("read.json", 'w') as plik_json:
-#     pierwsze_miejsca = [element[0] for element in labels]
-#     drugie_miejsca = [element[1] for element in labels]
-#     dane_do_zapisu = {"nazwa_pliku": pierwsze_miejsca, "lista_danych": drugie_miejsca}
-    
-#     # Ustawiamy parametr 'indent' na 2, aby uzyskać wcięcia i zapisywać wertykalnie
-#     json.dump(dane_do_zapisu, plik_json, indent=2)
-
-with open("readed_plates.txt", 'w') as plik_txt:
-    for item in labels:
-        plik_txt.writelines("Nazwa pliku: " + item[0] + " odczytana wartosc z tablicy: " + item[1] + "\n")
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+        plt.close()

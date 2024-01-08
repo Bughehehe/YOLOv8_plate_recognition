@@ -1,9 +1,0 @@
-pip install ultralytics
-
-
-
-
-
-
-VIDEO -> https://drive.google.com/file/d/1YmHTElM6rh5uBpvaoUYpYTHK2odJkoM6/view
-https://universe.roboflow.com/licenseplate-d9m5u/polish-license-plates

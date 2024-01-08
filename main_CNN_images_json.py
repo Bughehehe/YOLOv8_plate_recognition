@@ -1,7 +1,5 @@
 from ultralytics import YOLO
 import cv2
-from abewely_sort import *
-import computer_vision_engineer_util as util
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
@@ -10,6 +8,7 @@ from keras import optimizers
 from keras.models import Sequential
 from keras.preprocessing.image import ImageDataGenerator
 from keras.layers import Dense, Flatten, MaxPooling2D, Dropout, Conv2D
+import os
 
 DATASET_PATH = "best.pt"
 VID_PATH = "sample_better.mp4"
@@ -18,7 +17,8 @@ YOLO_MODEL = 'yolov8n.pt'
 def find_contours(dimensions, img) :
 
     # Find all contours in the image
-    cntrs, _ = cv2.findContours(img.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    cntrs, hierarchy  = cv2.findContours(img.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    cntrs = sorted(cntrs, key=cv2.contourArea, reverse=True)[:15]
 
     # Retrieve potential dimensions
     lower_width = dimensions[0]
@@ -34,7 +34,10 @@ def find_contours(dimensions, img) :
     x_cntr_list = []
     target_contours = []
     img_res = []
+
+    
     for cntr in cntrs :
+        
         # detects contour in binary image and returns the coordinates of rectangle enclosing it
         intX, intY, intWidth, intHeight = cv2.boundingRect(cntr)
         
@@ -77,15 +80,15 @@ def find_contours(dimensions, img) :
 def segment_characters(image) :
 
     # Preprocess cropped license plate image
-    img_lp = cv2.resize(image, (320, 60))
+    img_lp = cv2.resize(image, (420, 120))
     # img_lp = image
     # plt.show()
     cv2.imwrite('contour.jpg',img_lp)
     img_gray_lp = cv2.cvtColor(img_lp, cv2.COLOR_BGR2GRAY)
-    _, img_binary_lp = cv2.threshold(img_gray_lp, 210, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+    _, img_binary_lp = cv2.threshold(img_gray_lp, 200, 240, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
     img_binary_lp = cv2.erode(img_binary_lp, (3,3))
     img_binary_lp = cv2.dilate(img_binary_lp, (3,3))
-    print(img_binary_lp.shape)
+    # print(img_binary_lp.shape)
     LP_WIDTH = img_binary_lp.shape[0]
     LP_HEIGHT = img_binary_lp.shape[1]
 
@@ -96,10 +99,14 @@ def segment_characters(image) :
     img_binary_lp[:,LP_HEIGHT-3:LP_HEIGHT] = 255
 
     # Estimations of character contours sizes of cropped license plates
-    dimensions = [LP_WIDTH/25,
-                       LP_WIDTH/1.3,
-                       LP_HEIGHT/25,
-                       LP_HEIGHT/1.3]
+    # dimensions = [LP_WIDTH/30,
+    #                    LP_WIDTH/1.5,
+    #                    LP_HEIGHT/10.1,
+    #                    LP_HEIGHT/1.5]
+    dimensions = [LP_WIDTH/30,
+                       LP_WIDTH/1.5,
+                       LP_HEIGHT/11.35,
+                       LP_HEIGHT/1.5]
     plt.imshow(img_binary_lp, cmap='gray')
     cv2.imwrite('contour.jpg',img_binary_lp)
 
@@ -120,29 +127,27 @@ def fix_dimension(img):
     new_img[:,:,i] = img
   return new_img
   
-def show_results(char):
-    dic = {}
-    characters = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-    for i,c in enumerate(characters):
-        dic[i] = c
-
+def show_results(char, dic):
     output = []
     for i,ch in enumerate(char): #iterating over the characters
         img_ = cv2.resize(ch, (28,28), interpolation=cv2.INTER_AREA)
         img = fix_dimension(img_)
         img = img.reshape(1,28,28,3) #preparing image for the model
-        # y_ = model.predict_classes(img)[0] #predicting the class
         predict_x=model.predict(img)
         y_=np.argmax(predict_x,axis=1) 
         character = dic[int(y_)] #
         output.append(character) #storing the result in a list
         
     plate_number = ''.join(output)
-    print(plate_number)
+    # print(plate_number)
     
     return plate_number
 
 
+dic = {}
+characters = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+for i,c in enumerate(characters):
+    dic[i] = c
 
 model = Sequential()
 model.add(Conv2D(16, (22,22), input_shape=(28, 28, 3), activation='relu', padding='same'))
@@ -157,70 +162,74 @@ model.add(Dense(36, activation='softmax'))
 model.compile(loss='sparse_categorical_crossentropy', optimizer=optimizers.Adam(learning_rate=0.0001), metrics=custom_f1score)
 model.load_weights("CNN_Plate_Letters_Recognition_12epoch.h5")
 
-mot_tracker = Sort()
+# mot_tracker = Sort()
 
 # create model
 
-COCO_model = YOLO(YOLO_MODEL)
 licence_plate_detector = YOLO(DATASET_PATH)
 
-# training video
+# read photos
+main_path = os.getcwd()
+os.chdir(main_path + "\\img")
+photos = os.listdir(main_path + "\\img")
+photos.sort(key=len)
 
-vid = cv2.VideoCapture(VID_PATH)
 
-vehicles = [2, 3, 5, 7]
+labels = []
 
-# read frames
+for photo in photos:
 
-frame_number = -1
-ret = True
-while ret:
-    frame_number =+ 1
-    ret, frame = vid.read()
-    if ret and frame_number < 10 : 
-        detection = COCO_model(frame)[0]
-        detections_ = []
+    img = cv2.imread(photo)
+
+    licence_plastes = licence_plate_detector(img)[0]
+
+    temp_boxes = licence_plastes.boxes.data.tolist()
+    # for licence_plate in temp_boxes:
+    #    print(len(licence_plate))
+    #    print(type(licence_plate))
+    #    print((licence_plate))
+    #    for item in licence_plate:
+    #     # print(len(item))
+    #     print(type(item))
+    #     print((item))
+
+    
+          
+    for licence_plate in temp_boxes:
+        img_holder = img
+        x1, y1, x2, y2, score, class_id = licence_plate
+        license_plate_crop = 0
+        license_plate_crop = img_holder[int(y1):int(y2), int(x1):int(x2), :]
+
         
-        for detection in detection.boxes.data.tolist():
-            x1, y1, x2, y2, score, class_id = detection
-            # print(x1, y1, x2, y2, score, class_id)
-            if int(class_id) in vehicles:
-                detections_.append([x1,y1,x2,y2,score])
 
-        track_ids = mot_tracker.update(np.array(detections_))
+        ########################### PHOTO CNN ########################################
 
-        licence_plastes = licence_plate_detector(frame)[0]
+        char = segment_characters(license_plate_crop)
 
-        for licence_plate in licence_plastes.boxes.data.tolist():
-            x1, y1, x2, y2, score, class_id = licence_plate
-            car_x1, car_y1, car_x2, car_y2, car_id = util.get_car(licence_plate, track_ids)
+        predicted_label = []
 
-            license_plate_crop = frame[int(y1):int(y2), int(x1):int(x2), :]
+        plt.figure(figsize=(10,6))
+        for i,ch in enumerate(char):
+            img_holder = cv2.resize(ch, (28,28), interpolation=cv2.INTER_AREA)
+            plt.subplot(3,4,i+1)
+            plt.imshow(img_holder,cmap='gray')
+            temp = show_results(char, dic)[i]
+            plt.title(f'predicted: {temp}')
+            plt.axis('off')
+            predicted_label.append(temp)
+        # plt.show()
+        labels.append([photo, ''.join(predicted_label)])
+        print(predicted_label)
+        # cv2.imshow("original_crop", license_plate_crop)
 
-            # license_plate_crop_gray = cv2.cvtColor(license_plate_crop, cv2.COLOR_BGR2GRAY)
-            # _ , license_plate_crop_thresh = cv2.threshold(license_plate_crop_gray, 64, 255, cv2.THRESH_BINARY_INV)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
+        # plt.close()
 
-            # cv2.imwrite('plate.jpg',license_plate_crop)
+os.chdir(main_path)
 
-            # cv2.imshow("original_crop", license_plate_crop)
-            cv2.imshow("license_plate_crop", license_plate_crop)
-            # cv2.waitKey(0)
 
-            # licence_plaste_text, licence_plaste_text, score = util.read_license_plate(license_plate_crop_thresh)
-
-            ########################### PHOTO CNN ########################################
-
-            char = segment_characters(license_plate_crop)
-
-            plt.figure(figsize=(10,6))
-            for i,ch in enumerate(char):
-                img = cv2.resize(ch, (28,28), interpolation=cv2.INTER_AREA)
-                plt.subplot(3,4,i+1)
-                plt.imshow(img,cmap='gray')
-                plt.title(f'predicted: {show_results(char)[i]}')
-                plt.axis('off')
-            plt.show()
-
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
-            plt.close()
+with open("readed_plates.txt", 'w') as plik_txt:
+    for item in labels:
+        plik_txt.writelines("Nazwa pliku: " + item[0] + " odczytana wartosc z tablicy: " + item[1] + "\n")
